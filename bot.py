@@ -13,7 +13,6 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ── UptimeRobot Webserver (Render braucht einen offenen Port) ──────────────
 async def health(request):
     return web.Response(text="OK")
 
@@ -24,13 +23,13 @@ async def start_webserver():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8080)))
     await site.start()
-
-# ──────────────────────────────────────────────────────────────────────────
+    print("✅ Webserver gestartet")
 
 @bot.event
 async def on_ready():
     print(f"✅ Bot eingeloggt als {bot.user}")
     await db.init_db()
+    print("✅ Datenbank verbunden")
     await bot.load_extension("cogs.panel")
     await bot.load_extension("cogs.bewertung")
     try:
@@ -40,7 +39,16 @@ async def on_ready():
         print(f"❌ Fehler beim Sync: {e}")
 
 async def main():
-    await start_webserver()
-    await bot.start(os.getenv("DISCORD_TOKEN"))
+    async with bot:
+        await start_webserver()
+        await db.init_db()
+        await bot.load_extension("cogs.panel")
+        await bot.load_extension("cogs.bewertung")
+        try:
+            await bot.tree.sync()
+            print("✅ Slash-Commands synchronisiert")
+        except Exception as e:
+            print(f"❌ Sync Fehler: {e}")
+        await bot.start(os.getenv("DISCORD_TOKEN"))
 
 asyncio.run(main())
