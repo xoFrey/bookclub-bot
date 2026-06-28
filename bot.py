@@ -30,8 +30,8 @@ async def on_ready():
     print(f"✅ Bot eingeloggt als {bot.user}")
     await db.init_db()
     print("✅ Datenbank verbunden")
-    await bot.load_extension("cogs.panel")
-    await bot.load_extension("cogs.bewertung")
+    await bot.load_extension("panel")
+    await bot.load_extension("bewertung")
     try:
         synced = await bot.tree.sync()
         print(f"✅ {len(synced)} Slash-Commands synchronisiert")
@@ -42,8 +42,8 @@ async def main():
     async with bot:
         await start_webserver()
         await db.init_db()
-        await bot.load_extension("cogs.panel")
-        await bot.load_extension("cogs.bewertung")
+        await bot.load_extension("panel")
+        await bot.load_extension("bewertung")
         try:
             await bot.tree.sync()
             print("✅ Slash-Commands synchronisiert")
