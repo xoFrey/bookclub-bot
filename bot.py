@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import os
 import asyncio
 import traceback
-import database as db
 from aiohttp import web
 
 load_dotenv()
@@ -27,10 +26,9 @@ async def start_webserver():
 @bot.event
 async def on_ready():
     print(f"✅ Bot eingeloggt als {bot.user}")
-    print(f"🔄 Registrierte Commands vor Sync: {[c.name for c in bot.tree.get_commands()]}")
     try:
         synced = await bot.tree.sync()
-        print(f"✅ {len(synced)} Slash-Commands synchronisiert: {[c.name for c in synced]}")
+        print(f"✅ {len(synced)} Slash-Commands synchronisiert")
     except Exception as e:
         print(f"❌ Sync Fehler: {e}")
         traceback.print_exc()
@@ -38,17 +36,10 @@ async def on_ready():
 async def main():
     print("🔄 Starte Webserver...")
     await start_webserver()
-
-    print("🔄 Verbinde Datenbank...")
-    await db.init_db()
-    print("✅ Datenbank verbunden")
-
     print("🔄 Lade Extensions...")
     await bot.load_extension("panel")
-    print("✅ panel geladen")
     await bot.load_extension("bewertung")
-    print("✅ bewertung geladen")
-
+    print("✅ Extensions geladen")
     print("🔄 Starte Bot...")
     await bot.start(os.getenv("DISCORD_TOKEN"))
 
