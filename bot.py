@@ -3,6 +3,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import os
 import asyncio
+import traceback
 import database as db
 from aiohttp import web
 
@@ -25,30 +26,36 @@ async def start_webserver():
     await site.start()
     print("✅ Webserver gestartet")
 
+async def main():
+    try:
+        print("🔄 Starte Webserver...")
+        await start_webserver()
+
+        print("🔄 Verbinde Datenbank...")
+        await db.init_db()
+        print("✅ Datenbank verbunden")
+
+        print("🔄 Lade Extensions...")
+        await bot.load_extension("panel")
+        print("✅ panel geladen")
+        await bot.load_extension("bewertung")
+        print("✅ bewertung geladen")
+
+        print("🔄 Starte Bot...")
+        async with bot:
+            await bot.start(os.getenv("DISCORD_TOKEN"))
+    except Exception as e:
+        print(f"❌ Fehler: {e}")
+        traceback.print_exc()
+
 @bot.event
 async def on_ready():
     print(f"✅ Bot eingeloggt als {bot.user}")
-    await db.init_db()
-    print("✅ Datenbank verbunden")
-    await bot.load_extension("panel")
-    await bot.load_extension("bewertung")
     try:
         synced = await bot.tree.sync()
         print(f"✅ {len(synced)} Slash-Commands synchronisiert")
     except Exception as e:
-        print(f"❌ Fehler beim Sync: {e}")
-
-async def main():
-    async with bot:
-        await start_webserver()
-        await db.init_db()
-        await bot.load_extension("panel")
-        await bot.load_extension("bewertung")
-        try:
-            await bot.tree.sync()
-            print("✅ Slash-Commands synchronisiert")
-        except Exception as e:
-            print(f"❌ Sync Fehler: {e}")
-        await bot.start(os.getenv("DISCORD_TOKEN"))
+        print(f"❌ Sync Fehler: {e}")
+        traceback.print_exc()
 
 asyncio.run(main())
