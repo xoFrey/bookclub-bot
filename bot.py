@@ -4,9 +4,12 @@ from dotenv import load_dotenv
 import os
 import asyncio
 import traceback
+import database as db
 from aiohttp import web
 
 load_dotenv()
+
+KANAL_ID = 1520833897917583542
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -27,20 +30,32 @@ async def start_webserver():
 async def on_ready():
     print(f"✅ Bot eingeloggt als {bot.user}")
     try:
-        synced = await bot.tree.sync()
-        print(f"✅ {len(synced)} Slash-Commands synchronisiert")
+        await db.init_db()
+        print("✅ Datenbank verbunden")
     except Exception as e:
-        print(f"❌ Sync Fehler: {e}")
+        print(f"❌ DB Fehler: {e}")
         traceback.print_exc()
+        return
+
+    kanal = bot.get_channel(KANAL_ID)
+    if not kanal:
+        print(f"❌ Kanal {KANAL_ID} nicht gefunden")
+        return
+
+    from panel import PanelView
+    embed = discord.Embed(
+        title="📚 Buchclub Panel",
+        description="Willkommen im Buchclub! Wähle eine Aktion:",
+        color=discord.Color.purple()
+    )
+    await kanal.send(embed=embed, view=PanelView())
+    print("✅ Panel gepostet")
 
 async def main():
-    print("🔄 Starte Webserver...")
+    print("🔄 Starte...")
     await start_webserver()
-    print("🔄 Lade Extensions...")
     await bot.load_extension("panel")
     await bot.load_extension("bewertung")
-    print("✅ Extensions geladen")
-    print("🔄 Starte Bot...")
     await bot.start(os.getenv("DISCORD_TOKEN"))
 
 asyncio.run(main())
