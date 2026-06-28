@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import database as db
 from datetime import date
 
@@ -14,6 +13,7 @@ def sterne_anzeige(avg):
     voll = int(avg)
     halb = 1 if (avg - voll) >= 0.5 else 0
     return "⭐" * voll + ("✨" if halb else "") + f" ({avg:.1f})"
+
 
 class BuchEintragenModal(discord.ui.Modal, title="📚 Buch eintragen"):
     buch_titel = discord.ui.TextInput(label="Titel", placeholder="z.B. Der Herr der Ringe")
@@ -51,10 +51,7 @@ class BuchEintragenModal(discord.ui.Modal, title="📚 Buch eintragen"):
             end
         )
 
-        embed = discord.Embed(
-            title="✅ Buch eingetragen!",
-            color=discord.Color.green()
-        )
+        embed = discord.Embed(title="✅ Buch eingetragen!", color=discord.Color.green())
         embed.add_field(name="📖 Titel", value=self.buch_titel.value.strip(), inline=True)
         embed.add_field(name="✍️ Autor", value=self.autor.value.strip(), inline=True)
         embed.add_field(name="🏷️ Genre", value=self.genre, inline=True)
@@ -78,6 +75,38 @@ class GenreView(discord.ui.View):
         self.add_item(GenreSelect())
 
 
+class BuchBeendenSelect(discord.ui.Select):
+    def __init__(self, buecher):
+        options = [
+            discord.SelectOption(
+                label=f"{b['titel']} – {b['autor']}",
+                value=str(b['id']),
+                description=f"Endet: {b['end_datum'].strftime('%d.%m.%Y')}"
+            ) for b in buecher
+        ]
+        super().__init__(placeholder="Buch auswählen...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        buch_id = int(self.values[0])
+        buch = await db.buch_by_id(buch_id)
+
+        # Import hier um zirkuläre imports zu vermeiden
+        import bewertung as bew
+        kanal = interaction.channel
+        await interaction.response.send_message(f"✅ Bewertungsphase für **{buch['titel']}** gestartet!", ephemeral=True)
+
+        # Bewertung direkt starten
+        cog = interaction.client.cogs.get("Bewertung")
+        if cog:
+            await cog.bewertung_starten(buch, kanal)
+
+
+class BuchBeendenView(discord.ui.View):
+    def __init__(self, buecher):
+        super().__init__(timeout=60)
+        self.add_item(BuchBeendenSelect(buecher))
+
+
 class PanelView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -96,11 +125,9 @@ class PanelView(discord.ui.View):
         embed = discord.Embed(title="📊 Buchclub Statistiken", color=discord.Color.blue())
         embed.add_field(name="📚 Bücher gesamt", value=str(anzahl), inline=True)
         embed.add_field(name="📄 Gesamtseiten", value=str(seiten), inline=True)
-
         if genres:
             genre_text = "\n".join([f"**{g['genre']}** – {g['anzahl']}x" for g in genres])
             embed.add_field(name="🏷️ Genres", value=genre_text, inline=False)
-
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.ui.button(label="📖 Bücherliste", style=discord.ButtonStyle.secondary, custom_id="buecherliste")
@@ -109,7 +136,6 @@ class PanelView(discord.ui.View):
         if not buecher:
             await interaction.response.send_message("📭 Noch keine Bücher eingetragen.", ephemeral=True)
             return
-
         embed = discord.Embed(title="📖 Bücherliste", color=discord.Color.gold())
         for b in buecher:
             avg = float(b['avg_bewertung'])
@@ -125,20 +151,22 @@ class PanelView(discord.ui.View):
             )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @discord.ui.button(label="🔚 Buch beenden", style=discord.ButtonStyle.danger, custom_id="buch_beenden")
+    async def buch_beenden(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Nur Admins.", ephemeral=True)
+            return
+        buecher = await db.offene_buecher()
+        if not buecher:
+            await interaction.response.send_message("📭 Keine aktiven Bücher.", ephemeral=True)
+            return
+        view = BuchBeendenView(buecher)
+        await interaction.response.send_message("Welches Buch soll beendet werden?", view=view, ephemeral=True)
+
 
 class Panel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    @app_commands.command(name="panel", description="Buchclub Panel anzeigen")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def panel(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📚 Buchclub Panel",
-            description="Willkommen im Buchclub! Wähle eine Aktion:",
-            color=discord.Color.purple()
-        )
-        await interaction.response.send_message(embed=embed, view=PanelView())
 
 
 async def setup(bot):

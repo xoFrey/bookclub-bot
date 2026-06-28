@@ -109,3 +109,9 @@ async def buch_bewertungen(buch_id):
 async def buch_by_id(buch_id):
     async with pool.acquire() as conn:
         return await conn.fetchrow("SELECT * FROM buecher WHERE id = $1", buch_id)
+
+async def offene_buecher():
+    async with pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM buecher WHERE bewertung_offen = TRUE ORDER BY end_datum ASC"
+        )

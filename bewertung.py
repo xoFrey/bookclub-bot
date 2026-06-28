@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 import pytz
 import database as db
 
@@ -48,30 +48,14 @@ class BewertungSelect(discord.ui.Select):
 
 class BewertungView(discord.ui.View):
     def __init__(self, buch_id: int):
-        super().__init__(timeout=86400)  # 24 Stunden
+        super().__init__(timeout=86400)
         self.buch_id = buch_id
         self.add_item(BewertungSelect(buch_id))
-
-    async def on_timeout(self):
-        # Bewertung schließen und Ergebnis posten
-        buch = await db.buch_by_id(self.buch_id)
-        if not buch or not buch['bewertung_offen']:
-            return
-
-        avg, count = await db.buch_bewertungen(self.buch_id)
-
-        # View deaktivieren
-        for item in self.children:
-            item.disabled = True
-
-        # Kanal und Nachricht finden
-        # Diese werden beim Start gesetzt (siehe unten)
 
 
 class Bewertung(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.aktive_bewertungen = {}  # buch_id -> (message, view)
         self.check_bewertungen.start()
 
     def cog_unload(self):
@@ -81,46 +65,33 @@ class Bewertung(commands.Cog):
     async def check_bewertungen(self):
         jetzt_berlin = datetime.now(BERLIN)
         heute = jetzt_berlin.date()
-
-        # Nur um 16:00 Uhr auslösen (innerhalb der aktuellen Minute)
         if jetzt_berlin.hour != 16 or jetzt_berlin.minute != 0:
             return
-
         buecher = await db.buecher_fuer_bewertung_heute(heute)
         for buch in buecher:
-            await self.bewertung_starten(buch)
+            for guild in self.bot.guilds:
+                for ch in guild.text_channels:
+                    if ch.permissions_for(guild.me).send_messages:
+                        await self.bewertung_starten(buch, ch)
+                        break
 
-    async def bewertung_starten(self, buch):
-        # Ersten verfügbaren Textkanal im ersten Server suchen
-        for guild in self.bot.guilds:
-            kanal = None
-            for ch in guild.text_channels:
-                if ch.permissions_for(guild.me).send_messages:
-                    kanal = ch
-                    break
-            if not kanal:
-                continue
+    async def bewertung_starten(self, buch, kanal):
+        embed = discord.Embed(
+            title="📚 Buchbewertung!",
+            description=(
+                f"**{buch['titel']}** von *{buch['autor']}* ist fertig!\n\n"
+                f"Ihr habt **24 Stunden** Zeit, eine Bewertung abzugeben. 🕓"
+            ),
+            color=discord.Color.orange()
+        )
+        embed.add_field(name="📅 Zeitraum", value=f"{buch['start_datum'].strftime('%d.%m.%Y')} – {buch['end_datum'].strftime('%d.%m.%Y')}", inline=True)
+        embed.add_field(name="🏷️ Genre", value=buch['genre'], inline=True)
 
-            embed = discord.Embed(
-                title="📚 Buchbewertung!",
-                description=(
-                    f"**{buch['titel']}** von *{buch['autor']}* wurde heute fertig gelesen!\n\n"
-                    f"Ihr habt **24 Stunden** Zeit, eine Bewertung abzugeben. 🕓"
-                ),
-                color=discord.Color.orange()
-            )
-            embed.add_field(name="📅 Zeitraum", value=f"{buch['start_datum'].strftime('%d.%m.%Y')} – {buch['end_datum'].strftime('%d.%m.%Y')}", inline=True)
-            embed.add_field(name="🏷️ Genre", value=buch['genre'], inline=True)
+        view = BewertungView(buch['id'])
+        msg = await kanal.send(embed=embed, view=view)
+        await db.bewertung_schliessen_vorbereiten(buch['id'], msg.id, kanal.id)
 
-            view = BewertungView(buch['id'])
-            msg = await kanal.send(embed=embed, view=view)
-
-            # Nachricht-ID und Kanal für späteres Abschließen speichern
-            await db.bewertung_schliessen_vorbereiten(buch['id'], msg.id, kanal.id)
-            self.aktive_bewertungen[buch['id']] = (msg, view, kanal)
-
-            # Nach 24h Ergebnis posten
-            self.bot.loop.call_later(86400, lambda b=buch, k=kanal: self.bot.loop.create_task(self.bewertung_abschliessen(b, k)))
+        self.bot.loop.call_later(86400, lambda b=buch, k=kanal: self.bot.loop.create_task(self.bewertung_abschliessen(b, k)))
 
     async def bewertung_abschliessen(self, buch, kanal):
         avg, count = await db.buch_bewertungen(buch['id'])
@@ -135,18 +106,7 @@ class Bewertung(commands.Cog):
         embed.add_field(name="📅 Zeitraum", value=f"{buch['start_datum'].strftime('%d.%m.%Y')} – {buch['end_datum'].strftime('%d.%m.%Y')}", inline=True)
         embed.add_field(name="⭐ Durchschnitt", value=sterne_anzeige(float(avg)), inline=True)
         embed.add_field(name="🗳️ Bewertungen", value=str(count), inline=True)
-
         await kanal.send(embed=embed)
-
-        # Aktive Bewertung deaktivieren
-        if buch['id'] in self.aktive_bewertungen:
-            msg, view, _ = self.aktive_bewertungen.pop(buch['id'])
-            for item in view.children:
-                item.disabled = True
-            try:
-                await msg.edit(view=view)
-            except Exception:
-                pass
 
     @check_bewertungen.before_loop
     async def before_check(self):
