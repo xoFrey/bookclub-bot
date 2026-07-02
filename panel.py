@@ -4,9 +4,9 @@ import database as db
 from datetime import date
 
 GENRES = [
-    "Fantasy", "Science Fiction", "Krimi", "Thriller", "Roman",
-    "Historisch", "Horror", "Romantik", "Sachbuch", "Biografie",
-    "Jugend", "Klassiker", "Abenteuer", "Mystery", "Sonstiges"
+    "Fantasy","Romantasy", "Thriller", "Sci-Fi",
+    "Historisch", "Horror", "Romance", "Sachbuch", "Biografie",
+    "Young Adult", "Klassiker", "Distopie", "Otopie", "Dark Romance"
 ]
 
 def sterne_anzeige(avg):
