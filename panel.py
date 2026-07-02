@@ -4,9 +4,9 @@ import database as db
 from datetime import date
 
 GENRES = [
-    "Fantasy","Romantasy", "Thriller", "Sci-Fi",
-    "Historisch", "Horror", "Romance", "Sachbuch", "Biografie",
-    "Young Adult", "Klassiker", "Distopie", "Otopie", "Dark Romance"
+    "Fantasy", "Science Fiction", "Krimi", "Thriller", "Roman",
+    "Historisch", "Horror", "Romantik", "Sachbuch", "Biografie",
+    "Jugend", "Klassiker", "Abenteuer", "Mystery", "Sonstiges"
 ]
 
 def sterne_anzeige(avg):
@@ -129,10 +129,9 @@ class PanelView(discord.ui.View):
     async def buecherliste(self, interaction: discord.Interaction, button: discord.ui.Button):
         is_admin = interaction.user.guild_permissions.administrator
         buecher = await db.alle_buecher()
-        if not buecher:
-            await interaction.response.send_message("📭 Noch keine Bücher eingetragen.", ephemeral=True)
-            return
         embed = discord.Embed(title="📖 Bücherliste", color=discord.Color.gold())
+        if not buecher:
+            embed.description = "📭 Noch keine Bücher eingetragen."
         for b in buecher:
             avg = float(b['avg_bewertung'])
             bewertung_str = sterne_anzeige(avg) if b['anzahl_bewertungen'] > 0 else "Noch keine Bewertung"
@@ -187,10 +186,9 @@ class PublicView(discord.ui.View):
     @discord.ui.button(label="📖 Bücherliste", style=discord.ButtonStyle.secondary, custom_id="pub_buecherliste")
     async def buecherliste(self, interaction: discord.Interaction, button: discord.ui.Button):
         buecher = await db.alle_buecher()
-        if not buecher:
-            await interaction.response.send_message("📭 Noch keine Bücher eingetragen.", ephemeral=True)
-            return
         embed = discord.Embed(title="📖 Bücherliste", color=discord.Color.gold())
+        if not buecher:
+            embed.description = "📭 Noch keine Bücher eingetragen."
         for b in buecher:
             avg = float(b['avg_bewertung'])
             bewertung_str = sterne_anzeige(avg) if b['anzahl_bewertungen'] > 0 else "Noch keine Bewertung"
