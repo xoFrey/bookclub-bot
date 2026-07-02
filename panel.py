@@ -89,16 +89,10 @@ class BuchBeendenSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         buch_id = int(self.values[0])
         buch = await db.buch_by_id(buch_id)
-
-        # Import hier um zirkuläre imports zu vermeiden
-        import bewertung as bew
-        kanal = interaction.channel
-        await interaction.response.send_message(f"✅ Bewertungsphase für **{buch['titel']}** gestartet!", ephemeral=True)
-
-        # Bewertung direkt starten
+        await interaction.response.send_message(f"✅ Bewertungsphase für **{buch['titel']}** gestartet!", ephemeral=False)
         cog = interaction.client.cogs.get("Bewertung")
         if cog:
-            await cog.bewertung_starten(buch, kanal)
+            await cog.bewertung_starten(buch, interaction.channel)
 
 
 class BuchBeendenView(discord.ui.View):
@@ -121,6 +115,7 @@ class PanelView(discord.ui.View):
 
     @discord.ui.button(label="📊 Statistiken", style=discord.ButtonStyle.secondary, custom_id="statistiken")
     async def statistiken(self, interaction: discord.Interaction, button: discord.ui.Button):
+        is_admin = interaction.user.guild_permissions.administrator
         anzahl, seiten, genres = await db.statistiken()
         embed = discord.Embed(title="📊 Buchclub Statistiken", color=discord.Color.blue())
         embed.add_field(name="📚 Bücher gesamt", value=str(anzahl), inline=True)
@@ -128,10 +123,11 @@ class PanelView(discord.ui.View):
         if genres:
             genre_text = "\n".join([f"**{g['genre']}** – {g['anzahl']}x" for g in genres])
             embed.add_field(name="🏷️ Genres", value=genre_text, inline=False)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=not is_admin)
 
     @discord.ui.button(label="📖 Bücherliste", style=discord.ButtonStyle.secondary, custom_id="buecherliste")
     async def buecherliste(self, interaction: discord.Interaction, button: discord.ui.Button):
+        is_admin = interaction.user.guild_permissions.administrator
         buecher = await db.alle_buecher()
         if not buecher:
             await interaction.response.send_message("📭 Noch keine Bücher eingetragen.", ephemeral=True)
@@ -149,7 +145,7 @@ class PanelView(discord.ui.View):
                 ),
                 inline=False
             )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=not is_admin)
 
     @discord.ui.button(label="🔚 Buch beenden", style=discord.ButtonStyle.danger, custom_id="buch_beenden")
     async def buch_beenden(self, interaction: discord.Interaction, button: discord.ui.Button):

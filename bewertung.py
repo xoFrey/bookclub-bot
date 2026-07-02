@@ -1,10 +1,6 @@
 import discord
-from discord.ext import commands, tasks
-from datetime import date, datetime
-import pytz
+from discord.ext import commands
 import database as db
-
-BERLIN = pytz.timezone("Europe/Berlin")
 
 STERNE_OPTIONEN = [
     discord.SelectOption(label="⭐ 1.0 – Sehr schlecht", value="1.0"),
@@ -37,65 +33,29 @@ class BewertungSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         sterne = float(self.values[0])
-        gespeichert = await db.bewertung_speichern(self.buch_id, interaction.user.id, sterne)
-        if gespeichert:
-            await interaction.response.send_message(
-                f"✅ Deine Bewertung von **{sterne} ⭐** wurde gespeichert!", ephemeral=True
-            )
-        else:
-            await interaction.response.send_message("❌ Fehler beim Speichern.", ephemeral=True)
-
-
-class BewertungView(discord.ui.View):
-    def __init__(self, buch_id: int):
-        super().__init__(timeout=86400)
-        self.buch_id = buch_id
-        self.add_item(BewertungSelect(buch_id))
-
-
-class Bewertung(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self.check_bewertungen.start()
-
-    def cog_unload(self):
-        self.check_bewertungen.cancel()
-
-    @tasks.loop(minutes=1)
-    async def check_bewertungen(self):
-        jetzt_berlin = datetime.now(BERLIN)
-        heute = jetzt_berlin.date()
-        if jetzt_berlin.hour != 16 or jetzt_berlin.minute != 0:
-            return
-        buecher = await db.buecher_fuer_bewertung_heute(heute)
-        for buch in buecher:
-            for guild in self.bot.guilds:
-                for ch in guild.text_channels:
-                    if ch.permissions_for(guild.me).send_messages:
-                        await self.bewertung_starten(buch, ch)
-                        break
-
-    async def bewertung_starten(self, buch, kanal):
-        embed = discord.Embed(
-            title="📚 Buchbewertung!",
-            description=(
-                f"**{buch['titel']}** von *{buch['autor']}* ist fertig!\n\n"
-                f"Ihr habt **24 Stunden** Zeit, eine Bewertung abzugeben. 🕓"
-            ),
-            color=discord.Color.orange()
+        await db.bewertung_speichern(self.buch_id, interaction.user.id, sterne)
+        await interaction.response.send_message(
+            f"✅ **{interaction.user.display_name}** hat **{sterne} ⭐** gegeben!"
         )
-        embed.add_field(name="📅 Zeitraum", value=f"{buch['start_datum'].strftime('%d.%m.%Y')} – {buch['end_datum'].strftime('%d.%m.%Y')}", inline=True)
-        embed.add_field(name="🏷️ Genre", value=buch['genre'], inline=True)
 
-        view = BewertungView(buch['id'])
-        msg = await kanal.send(embed=embed, view=view)
-        await db.bewertung_schliessen_vorbereiten(buch['id'], msg.id, kanal.id)
 
-        self.bot.loop.call_later(86400, lambda b=buch, k=kanal: self.bot.loop.create_task(self.bewertung_abschliessen(b, k)))
+class BewertungAbschliessenButton(discord.ui.Button):
+    def __init__(self, buch_id: int):
+        self.buch_id = buch_id
+        super().__init__(label="✅ Bewertung abschließen", style=discord.ButtonStyle.success, custom_id=f"abschliessen_{buch_id}")
 
-    async def bewertung_abschliessen(self, buch, kanal):
-        avg, count = await db.buch_bewertungen(buch['id'])
-        await db.bewertung_schliessen(buch['id'], None, None)
+    async def callback(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Nur Admins.", ephemeral=True)
+            return
+        buch = await db.buch_by_id(self.buch_id)
+        avg, count = await db.buch_bewertungen(self.buch_id)
+        await db.bewertung_schliessen(self.buch_id, None, None)
+
+        # View deaktivieren
+        for item in self.view.children:
+            item.disabled = True
+        await interaction.message.edit(view=self.view)
 
         embed = discord.Embed(
             title="📊 Bewertungsergebnis",
@@ -106,11 +66,32 @@ class Bewertung(commands.Cog):
         embed.add_field(name="📅 Zeitraum", value=f"{buch['start_datum'].strftime('%d.%m.%Y')} – {buch['end_datum'].strftime('%d.%m.%Y')}", inline=True)
         embed.add_field(name="⭐ Durchschnitt", value=sterne_anzeige(float(avg)), inline=True)
         embed.add_field(name="🗳️ Bewertungen", value=str(count), inline=True)
-        await kanal.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @check_bewertungen.before_loop
-    async def before_check(self):
-        await self.bot.wait_until_ready()
+
+class BewertungView(discord.ui.View):
+    def __init__(self, buch_id: int):
+        super().__init__(timeout=None)
+        self.add_item(BewertungSelect(buch_id))
+        self.add_item(BewertungAbschliessenButton(buch_id))
+
+
+class Bewertung(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    async def bewertung_starten(self, buch, kanal):
+        embed = discord.Embed(
+            title="📚 Buchbewertung!",
+            description=f"**{buch['titel']}** von *{buch['autor']}* ist fertig!\n\nGibt eure Bewertung ab! ⭐",
+            color=discord.Color.orange()
+        )
+        embed.add_field(name="📅 Zeitraum", value=f"{buch['start_datum'].strftime('%d.%m.%Y')} – {buch['end_datum'].strftime('%d.%m.%Y')}", inline=True)
+        embed.add_field(name="🏷️ Genre", value=buch['genre'], inline=True)
+        embed.add_field(name="", value="*Admin kann die Bewertung jederzeit manuell abschließen.*", inline=False)
+
+        view = BewertungView(buch['id'])
+        await kanal.send(embed=embed, view=view)
 
 
 async def setup(bot):
