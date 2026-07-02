@@ -40,31 +40,31 @@ async def on_ready():
 
     from panel import PanelView, PublicView
 
-    # Kanal 1 – alle Buttons
-    kanal_admin = bot.get_channel(KANAL_ADMIN)
-    if kanal_admin:
-        embed = discord.Embed(
-            title="📚 Buchclub Panel",
-            description="Willkommen im Buchclub! Wähle eine Aktion:",
-            color=discord.Color.purple()
-        )
-        await kanal_admin.send(embed=embed, view=PanelView())
-        print("✅ Admin-Panel gepostet")
-    else:
-        print(f"❌ Admin-Kanal {KANAL_ADMIN} nicht gefunden")
+    # # Kanal 1 – alle Buttons
+    # kanal_admin = bot.get_channel(KANAL_ADMIN)
+    # if kanal_admin:
+    #     embed = discord.Embed(
+    #         title="📚 Buchclub Panel",
+    #         description="Willkommen im Buchclub! Wähle eine Aktion:",
+    #         color=discord.Color.purple()
+    #     )
+    #     await kanal_admin.send(embed=embed, view=PanelView())
+    #     print("✅ Admin-Panel gepostet")
+    # else:
+    #     print(f"❌ Admin-Kanal {KANAL_ADMIN} nicht gefunden")
 
-    # Kanal 2 – nur Statistiken & Bücherliste
-    kanal_public = bot.get_channel(KANAL_PUBLIC)
-    if kanal_public:
-        embed = discord.Embed(
-            title="📚 Buchclub",
-            description="Hier könnt ihr die Bücherliste und Statistiken einsehen:",
-            color=discord.Color.blurple()
-        )
-        await kanal_public.send(embed=embed, view=PublicView())
-        print("✅ Public-Panel gepostet")
-    else:
-        print(f"❌ Public-Kanal {KANAL_PUBLIC} nicht gefunden")
+    # # Kanal 2 – nur Statistiken & Bücherliste
+    # kanal_public = bot.get_channel(KANAL_PUBLIC)
+    # if kanal_public:
+    #     embed = discord.Embed(
+    #         title="📚 Buchclub",
+    #         description="Hier könnt ihr die Bücherliste und Statistiken einsehen:",
+    #         color=discord.Color.blurple()
+    #     )
+    #     await kanal_public.send(embed=embed, view=PublicView())
+    #     print("✅ Public-Panel gepostet")
+    # else:
+    #     print(f"❌ Public-Kanal {KANAL_PUBLIC} nicht gefunden")
 
 async def main():
     print("🔄 Starte...")

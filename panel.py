@@ -140,7 +140,7 @@ class PanelView(discord.ui.View):
                 value=(
                     f"🏷️ {b['genre']} | 📄 {b['seiten']} Seiten\n"
                     f"📅 {b['start_datum'].strftime('%d.%m.%Y')} – {b['end_datum'].strftime('%d.%m.%Y')}\n"
-                    f"⭐ {bewertung_str} ({b['anzahl_bewertungen']} Bewertungen)"
+                    f"🌠 {bewertung_str} ({b['anzahl_bewertungen']} Bewertungen)"
                 ),
                 inline=False
             )
@@ -198,7 +198,7 @@ class PublicView(discord.ui.View):
                 value=(
                     f"🏷️ {b['genre']} | 📄 {b['seiten']} Seiten\n"
                     f"📅 {b['start_datum'].strftime('%d.%m.%Y')} – {b['end_datum'].strftime('%d.%m.%Y')}\n"
-                    f"⭐ {bewertung_str} ({b['anzahl_bewertungen']} Bewertungen)"
+                    f"🌠 {bewertung_str} ({b['anzahl_bewertungen']} Bewertungen)"
                 ),
                 inline=False
             )

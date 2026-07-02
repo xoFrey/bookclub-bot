@@ -74,7 +74,7 @@ class BewertungAbschliessenButton(discord.ui.Button):
         )
         embed.add_field(name="📖 Buch", value=f"{buch['titel']} – *{buch['autor']}*", inline=False)
         embed.add_field(name="📅 Zeitraum", value=f"{buch['start_datum'].strftime('%d.%m.%Y')} – {buch['end_datum'].strftime('%d.%m.%Y')}", inline=True)
-        embed.add_field(name="⭐ Durchschnitt", value=sterne_anzeige(float(avg)), inline=True)
+        embed.add_field(name="🌠 Durchschnitt", value=sterne_anzeige(float(avg)), inline=True)
         embed.add_field(name="🗳️ Bewertungen", value=str(count), inline=True)
         await interaction.response.send_message(embed=embed)
 
