@@ -167,3 +167,40 @@ class Panel(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Panel(bot))
+
+
+class PublicView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="📊 Statistiken", style=discord.ButtonStyle.secondary, custom_id="pub_statistiken")
+    async def statistiken(self, interaction: discord.Interaction, button: discord.ui.Button):
+        anzahl, seiten, genres = await db.statistiken()
+        embed = discord.Embed(title="📊 Buchclub Statistiken", color=discord.Color.blue())
+        embed.add_field(name="📚 Bücher gesamt", value=str(anzahl), inline=True)
+        embed.add_field(name="📄 Gesamtseiten", value=str(seiten), inline=True)
+        if genres:
+            genre_text = "\n".join([f"**{g['genre']}** – {g['anzahl']}x" for g in genres])
+            embed.add_field(name="🏷️ Genres", value=genre_text, inline=False)
+        await interaction.response.send_message(embed=embed)
+
+    @discord.ui.button(label="📖 Bücherliste", style=discord.ButtonStyle.secondary, custom_id="pub_buecherliste")
+    async def buecherliste(self, interaction: discord.Interaction, button: discord.ui.Button):
+        buecher = await db.alle_buecher()
+        if not buecher:
+            await interaction.response.send_message("📭 Noch keine Bücher eingetragen.", ephemeral=True)
+            return
+        embed = discord.Embed(title="📖 Bücherliste", color=discord.Color.gold())
+        for b in buecher:
+            avg = float(b['avg_bewertung'])
+            bewertung_str = sterne_anzeige(avg) if b['anzahl_bewertungen'] > 0 else "Noch keine Bewertung"
+            embed.add_field(
+                name=f"📘 {b['titel']} – {b['autor']}",
+                value=(
+                    f"🏷️ {b['genre']} | 📄 {b['seiten']} Seiten\n"
+                    f"📅 {b['start_datum'].strftime('%d.%m.%Y')} – {b['end_datum'].strftime('%d.%m.%Y')}\n"
+                    f"⭐ {bewertung_str} ({b['anzahl_bewertungen']} Bewertungen)"
+                ),
+                inline=False
+            )
+        await interaction.response.send_message(embed=embed)

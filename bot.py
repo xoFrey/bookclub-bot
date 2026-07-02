@@ -9,7 +9,8 @@ from aiohttp import web
 
 load_dotenv()
 
-KANAL_ID = 1520833897917583542
+KANAL_ADMIN = 1522224891070251048
+KANAL_PUBLIC = 1522225490197348402
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -37,19 +38,33 @@ async def on_ready():
         traceback.print_exc()
         return
 
-    kanal = bot.get_channel(KANAL_ID)
-    if not kanal:
-        print(f"❌ Kanal {KANAL_ID} nicht gefunden")
-        return
+    from panel import PanelView, PublicView
 
-    from panel import PanelView
-    embed = discord.Embed(
-        title="📚 Buchclub Panel",
-        description="Willkommen im Buchclub! Wähle eine Aktion:",
-        color=discord.Color.purple()
-    )
-    await kanal.send(embed=embed, view=PanelView())
-    print("✅ Panel gepostet")
+    # Kanal 1 – alle Buttons
+    kanal_admin = bot.get_channel(KANAL_ADMIN)
+    if kanal_admin:
+        embed = discord.Embed(
+            title="📚 Buchclub Panel",
+            description="Willkommen im Buchclub! Wähle eine Aktion:",
+            color=discord.Color.purple()
+        )
+        await kanal_admin.send(embed=embed, view=PanelView())
+        print("✅ Admin-Panel gepostet")
+    else:
+        print(f"❌ Admin-Kanal {KANAL_ADMIN} nicht gefunden")
+
+    # Kanal 2 – nur Statistiken & Bücherliste
+    kanal_public = bot.get_channel(KANAL_PUBLIC)
+    if kanal_public:
+        embed = discord.Embed(
+            title="📚 Buchclub",
+            description="Hier könnt ihr die Bücherliste und Statistiken einsehen:",
+            color=discord.Color.blurple()
+        )
+        await kanal_public.send(embed=embed, view=PublicView())
+        print("✅ Public-Panel gepostet")
+    else:
+        print(f"❌ Public-Kanal {KANAL_PUBLIC} nicht gefunden")
 
 async def main():
     print("🔄 Starte...")
