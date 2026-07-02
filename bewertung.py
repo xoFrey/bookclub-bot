@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+import asyncio
 import database as db
 
 STERNE_OPTIONEN = [
@@ -20,6 +21,14 @@ def sterne_anzeige(avg):
     return "⭐" * voll + ("✨" if halb else "") + f" ({avg:.1f})"
 
 
+async def delete_after(msg, delay=86400):
+    await asyncio.sleep(delay)
+    try:
+        await msg.delete()
+    except Exception:
+        pass
+
+
 class BewertungSelect(discord.ui.Select):
     def __init__(self, buch_id: int):
         self.buch_id = buch_id
@@ -37,6 +46,8 @@ class BewertungSelect(discord.ui.Select):
         await interaction.response.send_message(
             f"✅ **{interaction.user.display_name}** hat **{sterne} ⭐** gegeben!"
         )
+        msg = await interaction.original_response()
+        asyncio.create_task(delete_after(msg, 86400))
 
 
 class BewertungAbschliessenButton(discord.ui.Button):
@@ -48,14 +59,13 @@ class BewertungAbschliessenButton(discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("❌ Nur Admins.", ephemeral=True)
             return
+
         buch = await db.buch_by_id(self.buch_id)
         avg, count = await db.buch_bewertungen(self.buch_id)
         await db.bewertung_schliessen(self.buch_id, None, None)
 
-        # View deaktivieren
-        for item in self.view.children:
-            item.disabled = True
-        await interaction.message.edit(view=self.view)
+        # Bewertungsfenster löschen
+        await interaction.message.delete()
 
         embed = discord.Embed(
             title="📊 Bewertungsergebnis",
